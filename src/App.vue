@@ -1,11 +1,16 @@
 <template>
-  <h1>基于 GPU.js 的图像放大研究</h1>
+  <h1>图像放大研究</h1>
   <div>
     <input v-show="false" ref="fileElement" type="file" @change="file = fileElement.files[0]">
     <img ref="imageElement" src="./assets/len_top.jpeg" alt="lena">
   </div>
   <div>
-    <input type="number" v-model="upscalePower"> <button @click="doUpscale">放大图像</button>
+    <input type="number" v-model="upscalePower">
+    <button @click="doUpscale">放大图像</button>
+    <span v-if="costTime > 0">{{ costTime / 1000 }}s</span>
+  </div>
+  <div v-if="canvas2">
+    {{ canvas2.width }} x {{ canvas2.height}} = {{ canvas2.width * canvas2.height }} px
   </div>
   <div>
     <canvas v-show="false" ref="canvas1"></canvas>
@@ -23,6 +28,7 @@ const canvas1 = ref<HTMLCanvasElement>()
 const canvas2 = ref<HTMLCanvasElement>()
 const file = ref<File>()
 const upscalePower = ref(2)
+const costTime = ref(0)
 
 /** WATCH */
 watch(file, () => {
@@ -54,6 +60,8 @@ function renderCanvas1 () {
 /** METHODS */
 function renderCanvas2 (power: number) {
   if (imageElement.value && canvas2.value) {
+    let startTime = new Date()
+
     let originalWidth = imageElement.value.width
     let originalHeight = imageElement.value.height
     let width = originalWidth * power
@@ -74,6 +82,10 @@ function renderCanvas2 (power: number) {
         ctx?.putImageData(imgData, 0, 0)
       }
     }
+
+    let overTime = new Date()
+
+    costTime.value = overTime.getTime() - startTime.getTime()
   }
 }
 
