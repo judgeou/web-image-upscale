@@ -1,5 +1,5 @@
 <template>
-  <h1>图像放大算法</h1>
+  <h1>image upscale 图像放大算法</h1>
   <div>
     <input v-show="false" ref="fileElement" type="file" @change="file = fileElement.files[0]">
     <img ref="imageElement" src="./assets/lozman.png" alt="lena">
