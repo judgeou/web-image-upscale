@@ -23,7 +23,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { upscale_nearest, upscale_linear } from './util'
+import { upscale_nearest, upscale_linear, upscale_bicubic } from './util'
 
 /** DATA */
 const scaleMethods = [
@@ -34,6 +34,10 @@ const scaleMethods = [
   {
     name: '双线性插值',
     func: upscale_linear
+  },
+  {
+    name: '双三次插值',
+    func: upscale_bicubic
   }
 ]
 
