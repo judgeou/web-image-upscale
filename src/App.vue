@@ -92,6 +92,8 @@ function renderCanvas2 (power: number) {
 function upscale (srcImageData: ImageData, destImageData: ImageData) {
   let { data: srcData, width: srcWidth, height: srcHeight } = srcImageData
   let { data: destData, width: destWidth, height: destHeight } = destImageData
+  const destDataU32 = new Uint32Array(destData.buffer)
+  const srcDataU32 = new Uint32Array(srcData.buffer)
 
   for (let i = 0; i < destWidth * destHeight; i++) {
     const destX = (i % destWidth)
@@ -99,13 +101,10 @@ function upscale (srcImageData: ImageData, destImageData: ImageData) {
     const srcX = Math.round(srcWidth * (destX / destWidth))
     const srcY = Math.round(srcHeight * (destY / destHeight))
     
-    const srcIndex = srcX * 4 + (srcY * 4 * srcWidth)
-    const destIndex = i * 4;
+    const srcIndex = srcX + (srcY * srcWidth)
+    const destIndex = i;
 
-    destData[destIndex] = srcData[srcIndex]
-    destData[destIndex + 1] = srcData[srcIndex + 1]
-    destData[destIndex + 2] = srcData[srcIndex + 2]
-    destData[destIndex + 3] = srcData[srcIndex + 3]
+    destDataU32[destIndex] = srcDataU32[srcIndex]
   }
 }
 
