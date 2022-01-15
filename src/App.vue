@@ -2,7 +2,7 @@
   <h1>图像放大算法</h1>
   <div>
     <input v-show="false" ref="fileElement" type="file" @change="file = fileElement.files[0]">
-    <img ref="imageElement" src="./assets/len_top.jpeg" alt="lena">
+    <img ref="imageElement" src="./assets/lozman.png" alt="lena">
   </div>
   <div>
     <input type="number" v-model="upscalePower">
@@ -46,7 +46,7 @@ const imageElement = ref<HTMLImageElement>()
 const canvas1 = ref<HTMLCanvasElement>()
 const canvas2 = ref<HTMLCanvasElement>()
 const file = ref<File>()
-const upscalePower = ref(2)
+const upscalePower = ref(32)
 const scaleMethodIndex = ref(0)
 const costTime = ref(0)
 
