@@ -6,6 +6,9 @@
   </div>
   <div>
     <input type="number" v-model="upscalePower">
+    <select v-model="scaleMethodIndex">
+      <option v-for="(item, index) in scaleMethods" :value="index">{{ item.name }}</option>
+    </select>
     <button @click="doUpscale">放大图像</button>
     <span v-if="costTime > 0">{{ costTime / 1000 }}s</span>
   </div>
@@ -23,12 +26,24 @@ import { onMounted, ref, watch } from 'vue'
 import { upscale_nearest, upscale_linear } from './util'
 
 /** DATA */
+const scaleMethods = [
+  {
+    name: '临近法插值',
+    func: upscale_nearest
+  },
+  {
+    name: '双线性插值',
+    func: upscale_linear
+  }
+]
+
 const fileElement = ref()
 const imageElement = ref<HTMLImageElement>()
 const canvas1 = ref<HTMLCanvasElement>()
 const canvas2 = ref<HTMLCanvasElement>()
 const file = ref<File>()
 const upscalePower = ref(2)
+const scaleMethodIndex = ref(0)
 const costTime = ref(0)
 
 /** WATCH */
@@ -91,8 +106,7 @@ function renderCanvas2 (power: number) {
 }
 
 function upscale (srcImageData: ImageData, destImageData: ImageData) {
-  upscale_linear(srcImageData, destImageData)
-  // upscale_nearest(srcImageData, destImageData)
+  scaleMethods[scaleMethodIndex.value].func(srcImageData, destImageData)
 }
 
 onMounted(() => {
