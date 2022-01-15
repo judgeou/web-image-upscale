@@ -1,5 +1,5 @@
 <template>
-  <h1>图像放大研究</h1>
+  <h1>图像放大算法</h1>
   <div>
     <input v-show="false" ref="fileElement" type="file" @change="file = fileElement.files[0]">
     <img ref="imageElement" src="./assets/len_top.jpeg" alt="lena">
@@ -20,6 +20,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
+import { upscale_nearest, upscale_linear } from './util'
 
 /** DATA */
 const fileElement = ref()
@@ -90,22 +91,8 @@ function renderCanvas2 (power: number) {
 }
 
 function upscale (srcImageData: ImageData, destImageData: ImageData) {
-  let { data: srcData, width: srcWidth, height: srcHeight } = srcImageData
-  let { data: destData, width: destWidth, height: destHeight } = destImageData
-  const destDataU32 = new Uint32Array(destData.buffer)
-  const srcDataU32 = new Uint32Array(srcData.buffer)
-
-  for (let i = 0; i < destWidth * destHeight; i++) {
-    const destX = (i % destWidth)
-    const destY = Math.floor(i / destWidth)
-    const srcX = Math.round(srcWidth * (destX / destWidth))
-    const srcY = Math.round(srcHeight * (destY / destHeight))
-    
-    const srcIndex = srcX + (srcY * srcWidth)
-    const destIndex = i;
-
-    destDataU32[destIndex] = srcDataU32[srcIndex]
-  }
+  upscale_linear(srcImageData, destImageData)
+  // upscale_nearest(srcImageData, destImageData)
 }
 
 onMounted(() => {
