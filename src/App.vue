@@ -29,7 +29,11 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { upscale_nearest, upscale_linear, upscale_bicubic } from './cpu-upscale'
-import { upscale_nearest as upscale_nearest_gpu, upscale_linear as upscale_linear_gpu } from './gpu-upscale'
+import {
+  upscale_nearest as upscale_nearest_gpu,
+  upscale_linear as upscale_linear_gpu,
+  upscale_bicubic as upscale_bicubic_gpu
+} from './gpu-upscale'
 
 /** DATA */
 const scaleMethods = [
@@ -46,7 +50,7 @@ const scaleMethods = [
   {
     name: '双三次插值',
     func: upscale_bicubic,
-    gpuFunc: () => {}
+    gpuFunc: upscale_bicubic_gpu
   }
 ]
 
