@@ -1,14 +1,19 @@
 <template>
   <h1>image upscale 图像放大算法</h1>
   <div>
-    <input v-show="false" ref="fileElement" type="file" @change="file = fileElement.files[0]">
+    <input ref="fileElement" type="file" @change="file = fileElement.files[0]">
+    <br />
     <img ref="imageElement" src="./assets/lozman.png" alt="lena">
   </div>
   <div>
     <input type="number" v-model="upscalePower">
+    
     <select v-model="scaleMethodIndex">
       <option v-for="(item, index) in scaleMethods" :value="index">{{ item.name }}</option>
     </select>
+
+    <input type="checkbox" v-model="isEnableGPU"> GPU 加速
+
     <button @click="doUpscale">放大图像</button>
     <span v-if="costTime > 0">{{ costTime / 1000 }}s</span>
   </div>
@@ -23,21 +28,25 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { upscale_nearest, upscale_linear, upscale_bicubic } from './util'
+import { upscale_nearest, upscale_linear, upscale_bicubic } from './cpu-upscale'
+import { upscale_nearest as upscale_nearest_gpu } from './gpu-upscale'
 
 /** DATA */
 const scaleMethods = [
   {
     name: '临近法插值',
-    func: upscale_nearest
+    func: upscale_nearest,
+    gpuFunc: upscale_nearest_gpu
   },
   {
     name: '双线性插值',
-    func: upscale_linear
+    func: upscale_linear,
+    gpuFunc: () => {}
   },
   {
     name: '双三次插值',
-    func: upscale_bicubic
+    func: upscale_bicubic,
+    gpuFunc: () => {}
   }
 ]
 
@@ -48,13 +57,14 @@ const canvas2 = ref<HTMLCanvasElement>()
 const file = ref<File>()
 const upscalePower = ref(32)
 const scaleMethodIndex = ref(0)
+const isEnableGPU = ref(true)
 const costTime = ref(0)
 
 /** WATCH */
 watch(file, () => {
-  const img = new Image()
-  if (file.value) {
-    const src = img.src = URL.createObjectURL(file.value)
+  const img = imageElement.value
+  if (file.value && img) {
+    img.src = URL.createObjectURL(file.value)
     img.onload = function () {
       renderCanvas1()
     }
@@ -62,7 +72,25 @@ watch(file, () => {
 })
 
 function doUpscale () {
-  renderCanvas2(upscalePower.value)
+  let startTime = new Date()
+  
+  if (isEnableGPU.value && imageElement.value && canvas2.value) {
+    const kernel = scaleMethods[scaleMethodIndex.value].gpuFunc(imageElement.value, upscalePower.value)
+    const ctx = canvas2.value.getContext('2d')
+
+    if (ctx && kernel) {
+      const newCanvas = kernel.canvas
+      canvas2.value.width = imageElement.value.width * upscalePower.value
+      canvas2.value.height = imageElement.value.height * upscalePower.value
+      ctx.drawImage(newCanvas, 0, 0)
+      kernel.destroy(true)
+    }
+  } else {
+    renderCanvas2(upscalePower.value)
+  }
+
+  let overTime = new Date()
+  costTime.value = overTime.getTime() - startTime.getTime()
 }
 
 function renderCanvas1 () {
@@ -80,8 +108,6 @@ function renderCanvas1 () {
 /** METHODS */
 function renderCanvas2 (power: number) {
   if (imageElement.value && canvas2.value) {
-    let startTime = new Date()
-
     let originalWidth = imageElement.value.width
     let originalHeight = imageElement.value.height
     let width = originalWidth * power
@@ -102,10 +128,6 @@ function renderCanvas2 (power: number) {
         ctx?.putImageData(imgData, 0, 0)
       }
     }
-
-    let overTime = new Date()
-
-    costTime.value = overTime.getTime() - startTime.getTime()
   }
 }
 
