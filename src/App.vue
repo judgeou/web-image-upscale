@@ -1,10 +1,6 @@
 <template>
-  <h1>image upscale 图像放大算法</h1>
-  <div>
-    <input ref="fileElement" type="file" @change="file = fileElement.files[0]">
-    <br />
-    <img ref="imageElement" src="./assets/lozman.png" alt="lena">
-  </div>
+  <h1>image upscale with GPU.js</h1>
+
   <div>
     <input type="number" v-model="upscalePower">
     
@@ -17,9 +13,36 @@
     <button @click="doUpscale">放大图像</button>
     <span v-if="costTime > 0">{{ costTime / 1000 }}s</span>
   </div>
+
+  <div>
+    <img @mousemove="onMouseMoveImage" ref="imageElement" src="./assets/len_top.jpeg" alt="lena">
+  </div>
+
+  <div>
+    <input ref="fileElement" type="file" @change="file = fileElement.files[0]">
+    <br />
+  </div>
+
   <div v-if="canvas2">
     {{ canvas2.width }} x {{ canvas2.height}} = {{ canvas2.width * canvas2.height }} px
   </div>
+
+  <div>
+    {{ boxInfo }}
+  </div>
+
+  <div class="row">
+    <div ref="nearestWindow" class="col">
+
+    </div>
+    <div ref="linearWindow" class="col">
+
+    </div>
+    <div ref="bicubicWindow" class="col">
+
+    </div>
+  </div>
+
   <div>
     <canvas v-show="false" ref="canvas1"></canvas>
     <canvas ref="canvas2"></canvas>
@@ -27,12 +50,17 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { upscale_nearest, upscale_linear, upscale_bicubic } from './cpu-upscale'
 import {
+  Box,
   upscale_nearest as upscale_nearest_gpu,
   upscale_linear as upscale_linear_gpu,
-  upscale_bicubic as upscale_bicubic_gpu
+  upscale_bicubic as upscale_bicubic_gpu,
+
+  upscale_nearest_kernelGenerate,
+  upscale_linear_kernelGenerate,
+  upscale_bicubic_kernelGenerate
 } from './gpu-upscale'
 
 /** DATA */
@@ -58,11 +86,26 @@ const fileElement = ref()
 const imageElement = ref<HTMLImageElement>()
 const canvas1 = ref<HTMLCanvasElement>()
 const canvas2 = ref<HTMLCanvasElement>()
+const nearestWindow = ref<HTMLDivElement>()
+const linearWindow = ref<HTMLDivElement>()
+const bicubicWindow = ref<HTMLDivElement>()
+
 const file = ref<File>()
-const upscalePower = ref(32)
+const upscalePower = ref(4)
 const scaleMethodIndex = ref(0)
 const isEnableGPU = ref(true)
 const costTime = ref(0)
+
+const boxInfo = reactive<Box>({
+  top: 0,
+  left: 0,
+  width: 0,
+  height: 0
+})
+
+let nearestKernel: any = null
+let linearKernel: any = null
+let bicubicKernel: any = null
 
 /** WATCH */
 watch(file, () => {
@@ -74,6 +117,21 @@ watch(file, () => {
     }
   }
 })
+
+function onMouseMoveImage (event: MouseEvent) {
+  const { offsetX, offsetY } = event
+  
+  if (imageElement.value && nearestKernel) {
+    boxInfo.top = offsetY
+    boxInfo.left = offsetX
+    boxInfo.width = imageElement.value.width / upscalePower.value
+    boxInfo.height = imageElement.value.height / upscalePower.value
+
+    nearestKernel(imageElement.value, imageElement.value.height, boxInfo.width, boxInfo.height, boxInfo.top, boxInfo.left)
+    linearKernel(imageElement.value, imageElement.value.height, boxInfo.width, boxInfo.height, boxInfo.top, boxInfo.left)
+    bicubicKernel(imageElement.value, imageElement.value.height, boxInfo.width, boxInfo.height, boxInfo.top, boxInfo.left)
+  }
+}
 
 function doUpscale () {
   let startTime = new Date()
@@ -140,14 +198,39 @@ function upscale (srcImageData: ImageData, destImageData: ImageData) {
 }
 
 onMounted(() => {
-  if (imageElement.value) {
-    imageElement.value.onload = () => {
+  if (imageElement.value && nearestWindow.value && linearWindow.value && bicubicWindow.value) {
+    const imageEl = imageElement.value
+    const nearestWindowEl = nearestWindow.value
+    const linearWindowEl = linearWindow.value
+    const bicubicWindowEl = bicubicWindow.value
+
+    imageEl.onload = () => {
       renderCanvas1()
+
+      nearestKernel = upscale_nearest_kernelGenerate(imageEl.width, imageEl.height)
+      nearestWindowEl.appendChild(nearestKernel.canvas)
+
+      linearKernel = upscale_linear_kernelGenerate(imageEl.width, imageEl.height)
+      linearWindowEl.appendChild(linearKernel.canvas)
+
+      bicubicKernel = upscale_bicubic_kernelGenerate(imageEl.width, imageEl.height)
+      bicubicWindowEl.appendChild(bicubicKernel.canvas)
     }
   }
 })
 </script>
 
 <style>
+.row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+}
+.col canvas {
 
+}
+img {
+  max-width: 100%;
+  height: auto;
+}
 </style>
