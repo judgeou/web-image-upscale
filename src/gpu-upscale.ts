@@ -58,8 +58,8 @@ gpu.addFunction(fourColorLinear, {
 })
 
 function upscale_nearest (image: HTMLImageElement, power: number) {
-  const outputImageWidth = image.width * power
-  const outputImageHeight = image.height * power
+  const outputImageWidth = Math.round(image.width * power)
+  const outputImageHeight = Math.round(image.height * power)
   
   const kernel = gpu.createKernel(function (image: any, srcWidth: number, srcHeight: number) {
     const { x, y } = this.thread
@@ -81,8 +81,8 @@ function upscale_nearest (image: HTMLImageElement, power: number) {
 }
 
 function upscale_linear (image: HTMLImageElement, power: number) {
-  const outputImageWidth = image.width * power
-  const outputImageHeight = image.height * power
+  const outputImageWidth = Math.round(image.width * power)
+  const outputImageHeight = Math.round(image.height * power)
   
   const kernel = gpu.createKernel(function (image: any, srcWidth: number, srcHeight: number) {    
     const { x, y } = this.thread
@@ -121,8 +121,8 @@ function upscale_linear (image: HTMLImageElement, power: number) {
 }
 
 function upscale_bicubic (image: HTMLImageElement, power: number) {
-  const outputImageWidth = image.width * power
-  const outputImageHeight = image.height * power
+  const outputImageWidth = Math.round(image.width * power)
+  const outputImageHeight = Math.round(image.height * power)
   
   const kernel = gpu.createKernel(function (image: any, srcWidth: number, srcHeight: number) {    
     const { x, y } = this.thread
