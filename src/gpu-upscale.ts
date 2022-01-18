@@ -10,6 +10,7 @@ interface Box {
 const gpu1 = new GPU()
 const gpu2 = new GPU()
 const gpu3 = new GPU()
+const gpu4 = new GPU()
 
 function twoNumberLinear (num1: number, num2: number, factor: number) {
   let a = num2 - num1
@@ -66,10 +67,8 @@ gpu3.addFunction(fourColorLinear, {
   returnType: 'Array(4)'
 })
 
-function upscale_nearest_kernelGenerate (image: HTMLImageElement) {
+function upscale_nearest_kernelGenerate (image: HTMLImageElement, outputImageWidth: number, outputImageHeight: number) {
   const { width, height } = image
-  const outputImageWidth = Math.round(width)
-  const outputImageHeight = Math.round(height)
 
   const kernelImage = gpu1.createKernel(function (image: any) {
     const { x, y } = this.thread
@@ -80,7 +79,7 @@ function upscale_nearest_kernelGenerate (image: HTMLImageElement) {
     output: [ width, height ]
   })
 
-  const imageTexture = kernelImage(image)
+  let imageTexture = kernelImage(image)
 
   const kernel = gpu1.createKernel(function (
     image: any,
@@ -102,13 +101,15 @@ function upscale_nearest_kernelGenerate (image: HTMLImageElement) {
     this.color(pixel[0], pixel[1], pixel[2], pixel[3])
   }, {
     graphical: true,
-    constants: { image_height: outputImageHeight },
+    constants: { image_height: height },
     output: [ outputImageWidth, outputImageHeight ]
   })
 
   return {
     canvas: kernel.canvas,
-    drawCall: (boxInfo: Box) => kernel(imageTexture, boxInfo.width, boxInfo.height, boxInfo.top, boxInfo.left),
+    drawCall: (boxInfo: Box) => {
+      kernel(imageTexture, boxInfo.width, boxInfo.height, boxInfo.top, boxInfo.left)
+    },
     destroy () {
       kernel.destroy(true)
       kernelImage.destroy(true)
@@ -116,10 +117,8 @@ function upscale_nearest_kernelGenerate (image: HTMLImageElement) {
   }
 }
 
-function upscale_linear_kernelGenerate (image: HTMLImageElement) {
+function upscale_linear_kernelGenerate (image: HTMLImageElement, outputImageWidth: number, outputImageHeight: number) {
   const { width, height } = image
-  const outputImageWidth = Math.round(width)
-  const outputImageHeight = Math.round(height)
 
   const kernelImage = gpu2.createKernel(function (image: any) {
     const { x, y } = this.thread
@@ -167,7 +166,7 @@ function upscale_linear_kernelGenerate (image: HTMLImageElement) {
     this.color(c3_pixel[0], c3_pixel[1], c3_pixel[2], c3_pixel[3])
   }, {
     graphical: true,
-    constants: { image_height: outputImageHeight },
+    constants: { image_height: height },
     output: [ outputImageWidth, outputImageHeight ]
   })
 
@@ -181,10 +180,8 @@ function upscale_linear_kernelGenerate (image: HTMLImageElement) {
   }
 }
 
-function upscale_bicubic_kernelGenerate (image: HTMLImageElement) {
+function upscale_bicubic_kernelGenerate (image: HTMLImageElement, outputImageWidth: number, outputImageHeight: number) {
   const { width, height } = image
-  const outputImageWidth = Math.round(width)
-  const outputImageHeight = Math.round(height)
 
   const kernelImage = gpu3.createKernel(function (image: any) {
     const { x, y } = this.thread
@@ -270,7 +267,7 @@ function upscale_bicubic_kernelGenerate (image: HTMLImageElement) {
     this.color(c[0], c[1], c[2], c[3])
   }, {
     graphical: true,
-    constants: { image_height: outputImageHeight },
+    constants: { image_height: height },
     output: [ outputImageWidth, outputImageHeight ]
   })
 

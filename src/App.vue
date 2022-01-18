@@ -1,15 +1,16 @@
 <template>
   <h1>image upscale with GPU.js</h1>
-
+  <div>Don't select a big image, GPU.js has some bug</div>
   <div>
     <input ref="fileElement" type="file" @change="file = fileElement.files[0]">
+    <img ref="imageElement" v-if="imgUrl" v-show="false" :src="imgUrl">
   </div>
 
   <div class="imgdiv">
     <div class="cover-box" :style="boxStyle">
 
     </div>
-    <img @wheel="onWheelImage" @mousemove="onMouseMoveImage" ref="imageElement" src="./assets/len_top.jpeg">
+    <img @wheel="onWheelImage" @mousemove="onMouseMoveImage" ref="imageElementMini" :src="imgUrl">
   </div>
 
   <div class="row">
@@ -38,11 +39,13 @@ import {
   upscale_linear_kernelGenerate,
   upscale_bicubic_kernelGenerate
 } from './gpu-upscale'
+import lena from './assets/len_top.jpeg'
 
 /** DATA */
 
 const fileElement = ref()
 const imageElement = ref<HTMLImageElement>()
+const imageElementMini = ref<HTMLImageElement>()
 const canvas1 = ref<HTMLCanvasElement>()
 const canvas2 = ref<HTMLCanvasElement>()
 const nearestWindow = ref<HTMLDivElement>()
@@ -50,6 +53,7 @@ const linearWindow = ref<HTMLDivElement>()
 const bicubicWindow = ref<HTMLDivElement>()
 
 const file = ref<File>()
+const imgUrl = ref<string>(lena)
 const upscalePower = ref(4)
 
 const boxInfo = reactive<Box>({
@@ -74,9 +78,8 @@ const boxStyle = computed(() => {
 
 /** WATCH */
 watch(file, () => {
-  const img = imageElement.value
-  if (file.value && img) {
-    img.src = URL.createObjectURL(file.value)
+  if (file.value) {
+    imgUrl.value = URL.createObjectURL(file.value)
   }
 })
 
@@ -91,15 +94,23 @@ function onWheelImage (event: WheelEvent) {
 function onMouseMoveImage (event: MouseEvent) {
   const { offsetX, offsetY } = event
   
-  if (imageElement.value && nearestKernel) {
-    boxInfo.width = clamp(imageElement.value.width / upscalePower.value, 0, imageElement.value.width)
-    boxInfo.height = clamp(imageElement.value.height / upscalePower.value, 0, imageElement.value.height)
-    boxInfo.top = offsetY - boxInfo.height / 2
-    boxInfo.left = offsetX - boxInfo.width / 2
+  if (imageElement.value && imageElementMini.value && nearestKernel) {
+    boxInfo.width = clamp(imageElementMini.value.width / upscalePower.value, 0, imageElementMini.value.width)
+    boxInfo.height = clamp(imageElementMini.value.height / upscalePower.value, 0, imageElementMini.value.height)
+    boxInfo.top = clamp(offsetY - boxInfo.height / 2, 0, imageElementMini.value.height - boxInfo.height)
+    boxInfo.left = clamp(offsetX - boxInfo.width / 2, 0, imageElementMini.value.width - boxInfo.width)
 
-    nearestKernel.drawCall(boxInfo)
-    linearKernel.drawCall(boxInfo)
-    bicubicKernel.drawCall(boxInfo)
+    // 
+    const bigbox: Box = {
+      width: boxInfo.width * (imageElement.value.width / imageElementMini.value.width),
+      height: boxInfo.height * (imageElement.value.height / imageElementMini.value.height),
+      top: boxInfo.top * (imageElement.value.height / imageElementMini.value.height),
+      left: boxInfo.left * (imageElement.value.width / imageElementMini.value.width)
+    }
+
+    nearestKernel.drawCall(bigbox)
+    linearKernel.drawCall(bigbox)
+    bicubicKernel.drawCall(bigbox)
   }
 }
 
@@ -120,19 +131,24 @@ function generateKernel () {
       bicubicKernel.destroy()
     }
 
-    nearestKernel = upscale_nearest_kernelGenerate(imageEl)
+    const outputSize = {
+      width: Math.round(document.body.clientWidth / 3 - 10),
+      height: Math.round((document.body.clientWidth / 3 - 10) / (imageEl.width / imageEl.height))
+    }
+
+    nearestKernel = upscale_nearest_kernelGenerate(imageEl, outputSize.width, outputSize.height)
     nearestWindowEl.appendChild(nearestKernel.canvas)
 
-    linearKernel = upscale_linear_kernelGenerate(imageEl)
+    linearKernel = upscale_linear_kernelGenerate(imageEl, outputSize.width, outputSize.height)
     linearWindowEl.appendChild(linearKernel.canvas)
 
-    bicubicKernel = upscale_bicubic_kernelGenerate(imageEl)
+    bicubicKernel = upscale_bicubic_kernelGenerate(imageEl, outputSize.width, outputSize.height)
     bicubicWindowEl.appendChild(bicubicKernel.canvas)
   }
 }
 
 onMounted(() => {
-  if (imageElement.value && nearestWindow.value && linearWindow.value && bicubicWindow.value) {
+  if (imageElement.value) {
     const imageEl = imageElement.value
 
     imageEl.onload = generateKernel
