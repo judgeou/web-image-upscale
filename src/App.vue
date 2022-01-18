@@ -3,32 +3,14 @@
 
   <div>
     <input type="number" v-model="upscalePower">
-    
-    <select v-model="scaleMethodIndex">
-      <option v-for="(item, index) in scaleMethods" :value="index">{{ item.name }}</option>
-    </select>
-
-    <input type="checkbox" v-model="isEnableGPU"> GPU 加速
-
-    <button @click="doUpscale">放大图像</button>
-    <span v-if="costTime > 0">{{ costTime / 1000 }}s</span>
-  </div>
-
-  <div>
-    <img @mousemove="onMouseMoveImage" ref="imageElement" src="./assets/len_top.jpeg" alt="lena">
-  </div>
-
-  <div>
     <input ref="fileElement" type="file" @change="file = fileElement.files[0]">
-    <br />
   </div>
 
-  <div v-if="canvas2">
-    {{ canvas2.width }} x {{ canvas2.height}} = {{ canvas2.width * canvas2.height }} px
-  </div>
+  <div class="imgdiv">
+    <div class="cover-box" :style="boxStyle">
 
-  <div>
-    {{ boxInfo }}
+    </div>
+    <img @wheel="onWheelImage" @mousemove="onMouseMoveImage" ref="imageElement" src="./assets/len_top.jpeg" alt="lena">
   </div>
 
   <div class="row">
@@ -50,37 +32,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
-import { upscale_nearest, upscale_linear, upscale_bicubic } from './cpu-upscale'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import {
   Box,
-  upscale_nearest as upscale_nearest_gpu,
-  upscale_linear as upscale_linear_gpu,
-  upscale_bicubic as upscale_bicubic_gpu,
-
   upscale_nearest_kernelGenerate,
   upscale_linear_kernelGenerate,
   upscale_bicubic_kernelGenerate
 } from './gpu-upscale'
 
 /** DATA */
-const scaleMethods = [
-  {
-    name: '临近法插值',
-    func: upscale_nearest,
-    gpuFunc: upscale_nearest_gpu
-  },
-  {
-    name: '双线性插值',
-    func: upscale_linear,
-    gpuFunc: upscale_linear_gpu
-  },
-  {
-    name: '双三次插值',
-    func: upscale_bicubic,
-    gpuFunc: upscale_bicubic_gpu
-  }
-]
 
 const fileElement = ref()
 const imageElement = ref<HTMLImageElement>()
@@ -92,9 +52,6 @@ const bicubicWindow = ref<HTMLDivElement>()
 
 const file = ref<File>()
 const upscalePower = ref(4)
-const scaleMethodIndex = ref(0)
-const isEnableGPU = ref(true)
-const costTime = ref(0)
 
 const boxInfo = reactive<Box>({
   top: 0,
@@ -107,6 +64,15 @@ let nearestKernel: any = null
 let linearKernel: any = null
 let bicubicKernel: any = null
 
+const boxStyle = computed(() => {
+  return {
+    top: `${boxInfo.top}px`,
+    left: `${boxInfo.left}px`,
+    width: `${boxInfo.width}px`,
+    height: `${boxInfo.height}px`
+  }
+})
+
 /** WATCH */
 watch(file, () => {
   const img = imageElement.value
@@ -118,41 +84,27 @@ watch(file, () => {
   }
 })
 
+const clamp = (num: number, min: number, max: number) => Math.min(Math.max(num, min), max)
+
+function onWheelImage (event: WheelEvent) {
+  event.preventDefault()
+  upscalePower.value = clamp(upscalePower.value + (event.deltaY / 64), 0, 64)
+  onMouseMoveImage(event)
+}
+
 function onMouseMoveImage (event: MouseEvent) {
   const { offsetX, offsetY } = event
   
   if (imageElement.value && nearestKernel) {
-    boxInfo.top = offsetY
-    boxInfo.left = offsetX
-    boxInfo.width = imageElement.value.width / upscalePower.value
-    boxInfo.height = imageElement.value.height / upscalePower.value
+    boxInfo.width = clamp(imageElement.value.width / upscalePower.value, 0, imageElement.value.width)
+    boxInfo.height = clamp(imageElement.value.height / upscalePower.value, 0, imageElement.value.height)
+    boxInfo.top = offsetY - boxInfo.height / 2
+    boxInfo.left = offsetX - boxInfo.width / 2
 
     nearestKernel(imageElement.value, imageElement.value.height, boxInfo.width, boxInfo.height, boxInfo.top, boxInfo.left)
     linearKernel(imageElement.value, imageElement.value.height, boxInfo.width, boxInfo.height, boxInfo.top, boxInfo.left)
     bicubicKernel(imageElement.value, imageElement.value.height, boxInfo.width, boxInfo.height, boxInfo.top, boxInfo.left)
   }
-}
-
-function doUpscale () {
-  let startTime = new Date()
-  
-  if (isEnableGPU.value && imageElement.value && canvas2.value) {
-    const kernel = scaleMethods[scaleMethodIndex.value].gpuFunc(imageElement.value, upscalePower.value)
-    const ctx = canvas2.value.getContext('2d')
-
-    if (ctx && kernel) {
-      const newCanvas = kernel.canvas
-      canvas2.value.width = imageElement.value.width * upscalePower.value
-      canvas2.value.height = imageElement.value.height * upscalePower.value
-      ctx.drawImage(newCanvas, 0, 0)
-      kernel.destroy(true)
-    }
-  } else {
-    renderCanvas2(upscalePower.value)
-  }
-
-  let overTime = new Date()
-  costTime.value = overTime.getTime() - startTime.getTime()
 }
 
 function renderCanvas1 () {
@@ -168,34 +120,6 @@ function renderCanvas1 () {
 }
 
 /** METHODS */
-function renderCanvas2 (power: number) {
-  if (imageElement.value && canvas2.value) {
-    let originalWidth = imageElement.value.width
-    let originalHeight = imageElement.value.height
-    let width = originalWidth * power
-    let height = originalHeight * power
-
-    canvas2.value.width = width
-    canvas2.value.height = height
-
-    const ctx = canvas2.value?.getContext('2d')
-    const imgData = ctx?.createImageData(width, height)
-    
-    if (imgData && canvas1.value) {
-      const ctx1 = canvas1.value.getContext('2d')
-      const srcImgData = ctx1?.getImageData(0, 0, originalWidth, originalHeight)
-
-      if (srcImgData) {
-        upscale(srcImgData, imgData)
-        ctx?.putImageData(imgData, 0, 0)
-      }
-    }
-  }
-}
-
-function upscale (srcImageData: ImageData, destImageData: ImageData) {
-  scaleMethods[scaleMethodIndex.value].func(srcImageData, destImageData)
-}
 
 onMounted(() => {
   if (imageElement.value && nearestWindow.value && linearWindow.value && bicubicWindow.value) {
@@ -226,10 +150,16 @@ onMounted(() => {
   flex-direction: row;
   justify-content: space-around;
 }
-.col canvas {
-
+.imgdiv {
+  position: relative;
 }
-img {
+.imgdiv .cover-box {
+  position: absolute;
+  background-color: rgb(192, 36, 36);
+  opacity: 0.4;
+  pointer-events: none;
+}
+.imgdiv img {
   max-width: 100%;
   height: auto;
 }
