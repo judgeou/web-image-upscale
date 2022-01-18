@@ -32,7 +32,6 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { IKernelRunShortcut } from 'gpu.js'
 import {
   Box,
   upscale_nearest_kernelGenerate,
@@ -60,9 +59,9 @@ const boxInfo = reactive<Box>({
   height: 0
 })
 
-let nearestKernel: IKernelRunShortcut
-let linearKernel: IKernelRunShortcut
-let bicubicKernel: IKernelRunShortcut
+let nearestKernel: ReturnType<typeof upscale_nearest_kernelGenerate>
+let linearKernel: ReturnType<typeof upscale_linear_kernelGenerate>
+let bicubicKernel: ReturnType<typeof upscale_bicubic_kernelGenerate>
 
 const boxStyle = computed(() => {
   return {
@@ -98,9 +97,9 @@ function onMouseMoveImage (event: MouseEvent) {
     boxInfo.top = offsetY - boxInfo.height / 2
     boxInfo.left = offsetX - boxInfo.width / 2
 
-    nearestKernel(imageElement.value, imageElement.value.height, boxInfo.width, boxInfo.height, boxInfo.top, boxInfo.left)
-    linearKernel(imageElement.value, imageElement.value.height, boxInfo.width, boxInfo.height, boxInfo.top, boxInfo.left)
-    bicubicKernel(imageElement.value, imageElement.value.height, boxInfo.width, boxInfo.height, boxInfo.top, boxInfo.left)
+    nearestKernel.drawCall(boxInfo)
+    linearKernel.drawCall(boxInfo)
+    bicubicKernel.drawCall(boxInfo)
   }
 }
 
@@ -112,22 +111,22 @@ function generateKernel () {
     const bicubicWindowEl = bicubicWindow.value
 
     if (nearestKernel) {
-      nearestKernel.destroy(true)
+      nearestKernel.destroy()
     }
     if (linearKernel) {
-      linearKernel.destroy(true)
+      linearKernel.destroy()
     }
     if (bicubicKernel) {
-      bicubicKernel.destroy(true)
+      bicubicKernel.destroy()
     }
 
-    nearestKernel = upscale_nearest_kernelGenerate(imageEl.width, imageEl.height)
+    nearestKernel = upscale_nearest_kernelGenerate(imageEl)
     nearestWindowEl.appendChild(nearestKernel.canvas)
 
-    linearKernel = upscale_linear_kernelGenerate(imageEl.width, imageEl.height)
+    linearKernel = upscale_linear_kernelGenerate(imageEl)
     linearWindowEl.appendChild(linearKernel.canvas)
 
-    bicubicKernel = upscale_bicubic_kernelGenerate(imageEl.width, imageEl.height)
+    bicubicKernel = upscale_bicubic_kernelGenerate(imageEl)
     bicubicWindowEl.appendChild(bicubicKernel.canvas)
   }
 }
