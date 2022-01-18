@@ -2,7 +2,6 @@
   <h1>image upscale with GPU.js</h1>
 
   <div>
-    <input type="number" v-model="upscalePower">
     <input ref="fileElement" type="file" @change="file = fileElement.files[0]">
   </div>
 
@@ -10,7 +9,7 @@
     <div class="cover-box" :style="boxStyle">
 
     </div>
-    <img @wheel="onWheelImage" @mousemove="onMouseMoveImage" ref="imageElement" src="./assets/len_top.jpeg" alt="lena">
+    <img @wheel="onWheelImage" @mousemove="onMouseMoveImage" ref="imageElement" src="./assets/len_top.jpeg">
   </div>
 
   <div class="row">
@@ -33,6 +32,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { IKernelRunShortcut } from 'gpu.js'
 import {
   Box,
   upscale_nearest_kernelGenerate,
@@ -60,9 +60,9 @@ const boxInfo = reactive<Box>({
   height: 0
 })
 
-let nearestKernel: any = null
-let linearKernel: any = null
-let bicubicKernel: any = null
+let nearestKernel: IKernelRunShortcut
+let linearKernel: IKernelRunShortcut
+let bicubicKernel: IKernelRunShortcut
 
 const boxStyle = computed(() => {
   return {
@@ -78,9 +78,6 @@ watch(file, () => {
   const img = imageElement.value
   if (file.value && img) {
     img.src = URL.createObjectURL(file.value)
-    img.onload = function () {
-      renderCanvas1()
-    }
   }
 })
 
@@ -107,39 +104,39 @@ function onMouseMoveImage (event: MouseEvent) {
   }
 }
 
-function renderCanvas1 () {
-  const img = imageElement.value
-  if (canvas1.value && img) {
-    const { width, height } = img
-    canvas1.value.width = width
-    canvas1.value.height = height
-
-    const ctx1 = canvas1.value.getContext('2d')
-    ctx1?.drawImage(img, 0, 0, img.width, img.height)
-  }
-}
-
-/** METHODS */
-
-onMounted(() => {
+function generateKernel () {
   if (imageElement.value && nearestWindow.value && linearWindow.value && bicubicWindow.value) {
     const imageEl = imageElement.value
     const nearestWindowEl = nearestWindow.value
     const linearWindowEl = linearWindow.value
     const bicubicWindowEl = bicubicWindow.value
 
-    imageEl.onload = () => {
-      renderCanvas1()
-
-      nearestKernel = upscale_nearest_kernelGenerate(imageEl.width, imageEl.height)
-      nearestWindowEl.appendChild(nearestKernel.canvas)
-
-      linearKernel = upscale_linear_kernelGenerate(imageEl.width, imageEl.height)
-      linearWindowEl.appendChild(linearKernel.canvas)
-
-      bicubicKernel = upscale_bicubic_kernelGenerate(imageEl.width, imageEl.height)
-      bicubicWindowEl.appendChild(bicubicKernel.canvas)
+    if (nearestKernel) {
+      nearestKernel.destroy(true)
     }
+    if (linearKernel) {
+      linearKernel.destroy(true)
+    }
+    if (bicubicKernel) {
+      bicubicKernel.destroy(true)
+    }
+
+    nearestKernel = upscale_nearest_kernelGenerate(imageEl.width, imageEl.height)
+    nearestWindowEl.appendChild(nearestKernel.canvas)
+
+    linearKernel = upscale_linear_kernelGenerate(imageEl.width, imageEl.height)
+    linearWindowEl.appendChild(linearKernel.canvas)
+
+    bicubicKernel = upscale_bicubic_kernelGenerate(imageEl.width, imageEl.height)
+    bicubicWindowEl.appendChild(bicubicKernel.canvas)
+  }
+}
+
+onMounted(() => {
+  if (imageElement.value && nearestWindow.value && linearWindow.value && bicubicWindow.value) {
+    const imageEl = imageElement.value
+
+    imageEl.onload = generateKernel
   }
 })
 </script>
@@ -160,7 +157,7 @@ onMounted(() => {
   pointer-events: none;
 }
 .imgdiv img {
-  max-width: 100%;
-  height: auto;
+  width: auto;
+  height: 35vh;
 }
 </style>
